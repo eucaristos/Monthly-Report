@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório Mensal</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- PapaParse para ler o CSV do Google Sheets -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Chart.js para o Gráfico -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg: #f0f7f5;
+            --surface: #ffffff;
+            --surface-2: #f6faf9;
+            --surface-offset: #e8f3f1;
+            --border: rgba(0, 0, 0, 0.07);
+            --divider: rgba(0, 0, 0, 0.05);
+            --text: #1a1a1a;
+            --text-muted: #5a6b67;
+            --text-faint: #9db0ac;
+            --primary: #00878f;
+            --primary-hover: #006b72;
+            --primary-light: #d6eeec;
+            --primary-subtle: #edf7f6;
+            --gray: #6b7280;
+            --success: #15803d;
+            --success-bg: #dcfce7;
+            --success-border: #bbf7d0;
+            --error: #b91c1c;
+            --error-bg: #fee2e2;
+            --error-border: #fecaca;
+            --shadow-sm: 0 1px 3px rgba(0, 90, 80, 0.07);
+            --shadow-md: 0 4px 14px rgba(0, 90, 80, 0.09);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --font-body: "Nunito", sans-serif;
+            --font-display: "Rubik", sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg: #0f1a18;
+            --surface: #182421;
+            --surface-2: #1e2d2a;
+            --surface-offset: #243530;
+            --border: rgba(255, 255, 255, 0.07);
+            --divider: rgba(255, 255, 255, 0.05);
+            --text: #e2edeb;
+            --text-muted: #7ea49f;
+            --text-faint: #4a6662;
+            --primary: #2fb5be;
+            --primary-hover: #4ecdd5;
+            --primary-light: #1a3a3c;
+            --primary-subtle: #152928;
+            --gray: #6b7280;
+            --success: #4ade80;
+            --success-bg: #14532d;
+            --success-border: #166534;
+            --error: #f87171;
+            --error-bg: #450a0a;
+            --error-border: #7f1d1d;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        select, button {
+            font-family: var(--font-body);
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+        }
+
+        button:hover {
+            background: var(--surface-2);
+        }
+
+        /* Grid dos Cards de Resumo */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card h3 {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-family: var(--font-display);
+        }
+
+        .card .value {
+            font-size: 24px;
+            font-weight: 600;
+            font-family: var(--font-display);
+        }
+
+        .card.success .value { color: var(--success); }
+        .card.error .value { color: var(--error); }
+        .card.primary .value { color: var(--primary); }
+
+        /* Seções e Blocos */
+        .section-box {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text);
+        }
+
+        /* Gráfico */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        /* Tabela Estilo Acordeon */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--divider);
+        }
+
+        th {
+            font-family: var(--font-display);
+            font-weight: 500;
+            color: var(--text-muted);
+            background: var(--surface-2);
+        }
+
+        tr:hover td {
+            background: var(--surface-2);
+        }
+
+        .categoria-row {
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--surface-offset);
+            user-select: none;
+        }
+
+        .categoria-row:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .subcategoria-row {
+            background: var(--surface);
+            display: none; /* Inicialmente ocultas */
+        }
+
+        .subcategoria-row td {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .text-right { text-align: right; }
+        .text-success { color: var(--success); font-weight: 600; }
+        .text-error { color: var(--error); font-weight: 600; }
+
+        /* Rodapé de Eventos e Observações */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .info-card {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            min-height: 160px;
+        }
+
+        .info-card h4 {
+            font-family: var(--font-display);
+            font-size: 15px;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+
+        .info-card p {
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 768px) {
+            header { flex-direction: column; align-items: flex-start; }
+            .controls { width: 100%; justify-content: space-between; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Relatório Mensal</h1>
+            <div class="controls">
+                <select id="filtroMes">
+                    <option value="todos">Todos os Meses</option>
+                </select>
+                <button id="btnTema" onclick="toggleTheme()">🌓 Tema</button>
+            </div>
+        </header>
+
+        <!-- 4 Cards de Resumo -->
+        <div class="metrics-grid">
+            <div class="card success">
+                <h3>Entradas</h3>
+                <div class="value" id="totalEntradas">R$ 0,00</div>
+            </div>
+            <div class="card error">
+                <h3>Saídas</h3>
+                <div class="value" id="totalSaidas">R$ 0,00</div>
+            </div>
+            <div class="card primary">
+                <h3>Balanço do Período</h3>
+                <div class="value" id="balancoPeriodo">R$ 0,00</div>
+            </div>
+            <div class="card">
+                <h3>Total Anual Realizado</h3>
+                <div class="value" id="totalAnual">R$ 0,00</div>
+            </div>
+        </div>
+
+        <!-- Bloco do Gráfico Mês a Mês -->
+        <div class="section-box">
+            <div class="section-title">Evolução Mensal (Entradas vs Saídas)</div>
+            <div class="chart-container">
+                <canvas id="graficoEvolucao"></canvas>
+            </div>
+        </div>
+
+        <!-- Bloco de Resumo de Entradas e Saídas (Tabela Colapsável) -->
+        <div class="section-box">
+            <div class="section-title">Resumo de Entradas e Saídas por Categoria (Clique para expandir)</div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Categoria / Subcategoria</th>
+                            <th class="text-right">Valor Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaResumoCorpo">
+                        <tr><td colspan="2" style="text-align:center;">Carregando dados da planilha...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Rodapé com Eventos e Excepcionais / Observações -->
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Eventos do Período</h4>
+                <p id="listaEventos">Nenhum evento registrado com observações específicas para este filtro.</p>
+            </div>
+            <div class="info-card">
+                <h4>Excepcionais e Observações</h4>
+                <p id="listaObservacoes">Nenhuma observação financeira registrada no período selecionado.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRGQBrzG-0p5aDWeAU7m3gVky_4_cuinTB0QO_pkOYpKU0Q5uc3ekFU_qwfPGM-eFuDY6wcqJs8RtE6/pub?output=csv';
+
+        let dadosGlobais = [];
+        let graficoInstance = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            carregarDadosPlanilha();
+            document.getElementById('filtroMes').addEventListener('change', atualizarDashboard);
+        });
+
+        function carregarDadosPlanilha() {
+            Papa.parse(CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    dadosGlobais = results.data;
+                    popularFiltroMeses();
+                    atualizarDashboard();
+                },
+                error: function(err) {
+                    console.error("Erro ao carregar CSV:", err);
+                    alert("Não foi possível carregar os dados da planilha.");
+                }
+            });
+        }
+
+        const ordemMeses = {
+            'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4,
+            'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
+            'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12
+        };
+
+        function parseMesAno(str) {
+            if (!str) return 0;
+            const partes = str.toLowerCase().split('/');
+            const nomeMes = partes[0].trim();
+            const ano = parseInt(partes[1]) || 2026;
+            return ano * 100 + (ordemMeses[nomeMes] || 0);
+        }
+
+        function popularFiltroMeses() {
+            const mesesSet = new Set();
+            dadosGlobais.forEach(row => {
+                if (row['Mês/Ano']) mesesSet.add(row['Mês/Ano'].trim());
+            });
+
+            // Ordena os meses cronologicamente
+            const mesesOrdenados = Array.from(mesesSet).sort((a, b) => parseMesAno(a) - parseMesAno(b));
+
+            const select = document.getElementById('filtroMes');
+            select.innerHTML = ''; // Limpa opções antigas
+
+            // Adiciona os meses em ordem crescente
+            mesesOrdenados.forEach(mes => {
+                const opt = document.createElement('option');
+                opt.value = mes;
+                opt.textContent = mes;
+                select.appendChild(opt);
+            });
+
+            // Adiciona "Todos os Meses" no final
+            const optTodos = document.createElement('option');
+            optTodos.value = 'todos';
+            optTodos.textContent = 'Todos os Meses';
+            select.appendChild(optTodos);
+
+            // Define o mês atual como padrão (agosto/2026)
+            const mesAtualStr = 'agosto/2026';
+            if (mesesSet.has(mesAtualStr)) {
+                select.value = mesAtualStr;
+            } else if (mesesOrdenados.length > 0) {
+                select.value = mesesOrdenados[mesesOrdenados.length - 1]; // Fallback para o último disponível
+            }
+        }
+
+        // Função auxiliar segura para extrair números (lida com "-R$", negativos, pontos e vírgulas)
+        function parseValor(strVal) {
+            if (!strVal) return 0;
+            let limpo = String(strVal).trim();
+            let negativo = limpo.includes('-');
+
+            // Remove tudo que não for número, vírgula ou ponto
+            limpo = limpo.replace(/[^0-9,.-]/g, '');
+
+            // Substitui ponto de milhar por vazio e vírgula decimal por ponto
+            limpo = limpo.replace(/\./g, '').replace(',', '.');
+
+            let num = parseFloat(limpo) || 0;
+            return negativo ? -Math.abs(num) : num;
+        }
+
+        function atualizarDashboard() {
+            const mesSelecionado = document.getElementById('filtroMes').value;
+
+            let dadosFiltrados = dadosGlobais;
+            if (mesSelecionado !== 'todos') {
+                dadosFiltrados = dadosGlobais.filter(row => row['Mês/Ano'] && row['Mês/Ano'].trim() === mesSelecionado);
+            }
+
+            let totalEntradas = 0;
+                        let totalSaidas = 0;
+                        let totalAnualPlanilha = 0; // Valor lido direto da planilha
+                        let estruturaTabela = {};
+                        let eventosArr = [];
+                        let obsArr = [];
+
+                        // Primeiro varre todos os dados para capturar o Total Anual e totais gerais se necessário
+                        dadosGlobais.forEach(row => {
+                            let tipo = row['Tipo'] ? row['Tipo'].trim().toUpperCase() : '';
+                            let cat = row['Categoria'] ? row['Categoria'].trim().toUpperCase() : '';
+                            let val = parseValor(row['Valor']);
+                            console.log(tipo + val);
+                            // Identifica a linha de Total Anual vinda do Excel (ex: Tipo = "ANUAL" ou Categoria contendo "TOTAL ANUAL")
+                            if (tipo === 'ANUAL' || cat.includes('TOTAL ANUAL REALIZADO')) {
+                                totalAnualPlanilha = val;
+                            }
+                        });
+
+                        // Filtra os dados para o mês selecionado (para a tabela e cards do mês)
+                        dadosFiltrados.forEach(row => {
+                            let tipo = row['Tipo'] ? row['Tipo'].trim().toUpperCase() : '';
+                            let cat = row['Categoria'] ? row['Categoria'].trim() : 'Outros';
+                            let subcat = row['Subcategoria'] ? row['Subcategoria'].trim() : '';
+                            let obs = row['Observação'] ? row['Observação'].trim() : '';
+                            let val = parseFloat(String(row['Valor'] || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim()) || 0;
+
+                            // Ignora a linha de anual no cálculo mensal de entradas/saídas
+                            if (tipo === 'ANUAL' || cat.toUpperCase().includes('TOTAL ANUAL')) return;
+
+                            if (tipo === 'RECEITAS') {
+                                totalEntradas += val;
+                            } else if (tipo === 'DESPESAS') {
+                                totalSaidas += Math.abs(val);
+                            }
+
+                            if (!estruturaTabela[tipo]) estruturaTabela[tipo] = {};
+                            if (!estruturaTabela[tipo][cat]) estruturaTabela[tipo][cat] = { total: 0, subs: {} };
+
+                            estruturaTabela[tipo][cat].total += val;
+                            if (subcat) {
+                                if (!estruturaTabela[tipo][cat].subs[subcat]) estruturaTabela[tipo][cat].subs[subcat] = 0;
+                                estruturaTabela[tipo][cat].subs[subcat] += val;
+                            }
+
+                            if (obs && obs !== '-' && obs.length > 3) {
+                                if (cat.toLowerCase().includes('evento') || obs.toLowerCase().includes('evento')) {
+                                    eventosArr.push(obs);
+                                } else {
+                                    obsArr.push(obs);
+                                }
+                            }
+                        });
+
+                        // Atualiza os Cards
+                        document.getElementById('totalEntradas').textContent = formatarMoeda(totalEntradas);
+                        document.getElementById('totalSaidas').textContent = formatarMoeda(totalSaidas);
+                        let balanco = totalEntradas - totalSaidas;
+                        const elBalanco = document.getElementById('balancoPeriodo');
+                        elBalanco.textContent = formatarMoeda(balanco);
+                        elBalanco.parentElement.className = `card ${balanco >= 0 ? 'success' : 'error'}`;
+
+                        // Exibe o valor anual lido direto da planilha
+
+                        document.getElementById('totalAnual').textContent = formatarMoeda(totalAnualPlanilha);
+                        document.getElementById('totalAnual').style = totalAnualPlanilha > 0 ? "color: var(--success);" : "color: var(--error);";
+
+            renderizarTabela(estruturaTabela);
+
+            document.getElementById('listaEventos').textContent = eventosArr.length > 0 ? eventosArr.join(' • ') : 'Nenhum evento registrado no período.';
+            document.getElementById('listaObservacoes').textContent = obsArr.length > 0 ? obsArr.join(' • ') : 'Nenhuma observação cadastrada.';
+
+            renderizarGrafico();
+        }
+
+        function renderizarTabela(estrutura) {
+            let html = '';
+            let contadorId = 0;
+
+            for (let tipo in estrutura) {
+                let corClasse = tipo === 'RECEITAS' ? 'text-success' : 'text-error';
+                html += `<tr style="background: var(--surface-offset); font-weight:bold;"><td colspan="2">${tipo}</td></tr>`;
+
+                for (let cat in estrutura[tipo]) {
+                    let catObj = estrutura[tipo][cat];
+                    let temSubs = Object.keys(catObj.subs).length > 0;
+                    let rowId = `cat-${contadorId++}`;
+
+                    // Linha principal da Categoria
+                    html += `
+                        <tr class="categoria-row" ${temSubs ? `onclick="toggleSubcategorias('${rowId}')"` : ''}>
+                            <td style="padding-left: 20px;">${temSubs ? '▶ ' : '• '}${cat}</td>
+                            <td class="text-right ${corClasse}">${formatarMoeda(catObj.total)}</td>
+                        </tr>
+                    `;
+
+                    // Linhas de subcategorias (inicialmente ocultas)
+                    for (let sub in catObj.subs) {
+                        html += `
+                            <tr class="subcategoria-row ${rowId}">
+                                <td style="padding-left: 45px;">- ${sub}</td>
+                                <td class="text-right">${formatarMoeda(catObj.subs[sub])}</td>
+                            </tr>
+                        `;
+                    }
+                }
+            }
+
+            document.getElementById('tabelaResumoCorpo').innerHTML = html || '<tr><td colspan="2" style="text-align:center;">Nenhum dado encontrado.</td></tr>';
+        }
+
+        // Função para expandir/recolher as subcategorias ao clicar
+        function toggleSubcategorias(rowId) {
+            const linhas = document.querySelectorAll(`.${rowId}`);
+            linhas.forEach(linha => {
+                if (linha.style.display === 'table-row') {
+                    linha.style.display = 'none';
+                } else {
+                    linha.style.display = 'table-row';
+                }
+            });
+        }
+
+        function renderizarGrafico() {
+          let mesesMap = {};
+              dadosGlobais.forEach(row => {
+                  let mes = row['Mês/Ano'] ? row['Mês/Ano'].trim() : '';
+                  let tipo = row['Tipo'] ? row['Tipo'].trim().toUpperCase() : '';
+                  let val = parseFloat(String(row['Valor'] || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim()) || 0;
+
+                  if (mes) {
+                      if (!mesesMap[mes]) mesesMap[mes] = { receitas: 0, despesas: 0 };
+                      if (tipo === 'RECEITAS') mesesMap[mes].receitas += val;
+                      if (tipo === 'DESPESAS') mesesMap[mes].despesas += Math.abs(val);
+                  }
+              });
+
+              let labels = Object.keys(mesesMap).sort((a, b) => parseMesAno(a) - parseMesAno(b));
+                  let dataReceitas = labels.map(m => mesesMap[m].receitas);
+                  let dataDespesas = labels.map(m => mesesMap[m].despesas);
+
+                  const ctx = document.getElementById('graficoEvolucao').getContext('2d');
+
+            if (graficoInstance) {
+                graficoInstance.destroy();
+            }
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+            graficoInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Entradas',
+                            data: dataReceitas,
+                            backgroundColor: '#15803d',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Saídas',
+                            data: dataDespesas,
+                            backgroundColor: '#b91c1c',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: isDark ? '#e2edeb' : '#1a1a1a',
+                                font: { family: 'Nunito' }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' },
+                            ticks: { color: isDark ? '#7ea49f' : '#5a6b67' }
+                        },
+                        y: {
+                            grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' },
+                            ticks: { color: isDark ? '#7ea49f' : '#5a6b67' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function formatarMoeda(valor) {
+            return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            renderizarGrafico();
+        }
+    </script>
+</body>
+</html>
